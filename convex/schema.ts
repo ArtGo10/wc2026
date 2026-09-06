@@ -73,6 +73,22 @@ export default defineSchema({
     .index("by_key", ["key"])
     .index("by_type_sent_at", ["type", "sentAt"]),
 
+  pushNotificationSchedules: defineTable({
+    logicalKey: v.string(),
+    eventKey: v.string(),
+    type: v.string(),
+    gameweekId: v.optional(v.id("fantasyGameweeks")),
+    scheduledAt: v.number(),
+    deadlineAt: v.optional(v.number()),
+    scheduledFunctionId: v.optional(v.string()),
+    status: v.union(v.literal("scheduled"), v.literal("cancelled")),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_logical_key", ["logicalKey"])
+    .index("by_gameweek", ["gameweekId"])
+    .index("by_scheduled_at", ["scheduledAt"]),
+
   userNotifications: defineTable({
     userId: v.id("users"),
     type: v.string(),

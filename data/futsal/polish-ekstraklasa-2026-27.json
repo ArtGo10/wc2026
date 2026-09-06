@@ -9158,9 +9158,9 @@
       "displayName": "Dawid Wasążnik",
       "firstName": "Dawid",
       "lastName": "Wasążnik",
-      "position": "universal",
+      "position": "goalkeeper",
       "status": "active",
-      "jerseyNumber": null,
+      "jerseyNumber": 12,
       "clubExternalId": "1100259",
       "currentTeamExternalIds": [
         "1100259"
@@ -9544,9 +9544,9 @@
       "displayName": "Bruno Mazur",
       "firstName": "Bruno",
       "lastName": "Mazur",
-      "position": "universal",
+      "position": "goalkeeper",
       "status": "active",
-      "jerseyNumber": null,
+      "jerseyNumber": 12,
       "clubExternalId": "971765",
       "currentTeamExternalIds": [
         "971765"
@@ -10040,7 +10040,7 @@
       "displayName": "Oliwier Piwowarczyk",
       "firstName": "Oliwier",
       "lastName": "Piwowarczyk",
-      "position": "universal",
+      "position": "goalkeeper",
       "status": "active",
       "jerseyNumber": null,
       "clubExternalId": "1124279",
@@ -10378,6 +10378,34 @@
       "suggestedPrice": 9,
       "photoCloudflareId": null,
       "photoStorageKey": null
+    },
+    {
+      "externalId": "pol-live:1100264:gustavo-da-costa-soares",
+      "sourceSlug": "gustavo-da-costa-soares",
+      "sourceUrl": "https://www.futsalslaskwroclaw.pl/players",
+      "displayName": "Gustavo da Costa Soares",
+      "firstName": "Gustavo",
+      "lastName": "da Costa Soares",
+      "position": "universal",
+      "status": "active",
+      "jerseyNumber": 75,
+      "clubExternalId": "1100264",
+      "currentTeamExternalIds": [
+        "1100264"
+      ],
+      "listedTeamExternalIds": [
+        "1100264"
+      ],
+      "photoUrl": null,
+      "photoThumbnailUrl": null,
+      "photoProvider": null,
+      "photoSourceUrl": null,
+      "photoSourceThumbnailUrl": null,
+      "sourceStats": {
+        "extraLeague2025_26": null,
+        "firstLeague2025_26": null
+      },
+      "suggestedPrice": 6.5
     },
     {
       "externalId": "pol-fp-transfer:1100264:stefano",
@@ -11647,9 +11675,9 @@
       "awayClubExternalId": "971765",
       "homeClubName": "Legia Warszawa",
       "awayClubName": "AZS UŚ Katowice",
-      "homeScore": null,
-      "awayScore": null,
-      "status": "scheduled",
+      "homeScore": 1,
+      "awayScore": 1,
+      "status": "completed",
       "venue": null,
       "leagueExternalIds": [
         "6294"

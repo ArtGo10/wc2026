@@ -7,9 +7,6 @@ declare const process: {
   env: Record<string, string | undefined>;
 };
 
-const HOUR_MS = 60 * 60 * 1000;
-const DAY_MS = 24 * HOUR_MS;
-
 type NotificationLanguage = "en" | "uk" | "pl";
 
 type ExpoPushRecipient = {
@@ -18,32 +15,10 @@ type ExpoPushRecipient = {
   userId: Id<"users">;
 };
 
-type DeadlineReminderWindow = {
-  keySuffix: string;
-  maxMs: number;
-  minExclusiveMs: number;
-  type: string;
-};
-
 type PushNotificationRecipientFilterArgs = {
   legacyPushEventKeys?: string[];
   pushEventKey: string;
 };
-
-const DEADLINE_REMINDER_WINDOWS: DeadlineReminderWindow[] = [
-  {
-    keySuffix: "day-before",
-    type: "deadline_reminder_day",
-    maxMs: DAY_MS,
-    minExclusiveMs: HOUR_MS,
-  },
-  {
-    keySuffix: "hour-before",
-    type: "deadline_reminder_hour",
-    maxMs: HOUR_MS,
-    minExclusiveMs: 0,
-  },
-];
 
 function normalizePreferredLanguage(
   language: string | undefined,
@@ -296,6 +271,7 @@ export const gameweekPushState = internalQuery({
     const season = await ctx.db.get(gameweek.seasonId);
 
     return {
+      deadlineAt: gameweek.deadlineAt ?? null,
       leagueName: season?.leagueName ?? null,
       name: gameweek.name,
       number: gameweek.number,
@@ -318,89 +294,6 @@ export const pushNotificationEventExists = internalQuery({
       .first();
 
     return !!event;
-  },
-});
-
-export const pendingDeadlineReminders = internalQuery({
-  args: {
-    now: v.number(),
-  },
-  handler: async (ctx, args) => {
-    const seasons = await ctx.db.query("fantasySeasons").collect();
-    const activeSeasons = seasons.filter(
-      (season) => season.status !== "archived" && season.status !== "completed",
-    );
-    const reminders: Array<{
-      gameweekName: string;
-      gameweekNumber: number;
-      key: string;
-      legacyKeys: string[];
-      leagueName: string | null;
-      seasonDisplayName: string | null;
-      seasonName: string | null;
-      seasonShortName: string | null;
-      seasonSlug: string | null;
-      type: string;
-    }> = [];
-
-    for (const season of activeSeasons) {
-      const gameweeks = await ctx.db
-        .query("fantasyGameweeks")
-        .withIndex("by_season", (q) => q.eq("seasonId", season._id))
-        .collect();
-
-      for (const gameweek of gameweeks) {
-        if (!gameweek.deadlineAt) continue;
-        if (gameweek.status !== "open" && gameweek.status !== "upcoming") {
-          continue;
-        }
-
-        const timeUntilDeadline = gameweek.deadlineAt - args.now;
-        if (timeUntilDeadline <= 0 || timeUntilDeadline > DAY_MS) continue;
-
-        for (const reminderWindow of DEADLINE_REMINDER_WINDOWS) {
-          if (timeUntilDeadline > reminderWindow.maxMs) continue;
-          if (timeUntilDeadline <= reminderWindow.minExclusiveMs) continue;
-
-          const key =
-            `deadline-reminder:${reminderWindow.keySuffix}:${gameweek._id}`;
-          const legacyKeys =
-            reminderWindow.keySuffix === "day-before"
-              ? [`deadline-reminder:${gameweek._id}`]
-              : [];
-          const alreadySent = await ctx.db
-            .query("pushNotificationEvents")
-            .withIndex("by_key", (q) => q.eq("key", key))
-            .first();
-          if (alreadySent) continue;
-
-          if (reminderWindow.keySuffix === "day-before") {
-            const legacyDayReminder = await ctx.db
-              .query("pushNotificationEvents")
-              .withIndex("by_key", (q) =>
-                q.eq("key", `deadline-reminder:${gameweek._id}`),
-              )
-              .first();
-            if (legacyDayReminder) continue;
-          }
-
-          reminders.push({
-            gameweekName: gameweek.name,
-            gameweekNumber: gameweek.number,
-            key,
-            legacyKeys,
-            leagueName: season.leagueName ?? null,
-            seasonDisplayName: season.displayName ?? null,
-            seasonName: season.name ?? null,
-            seasonShortName: season.shortName ?? null,
-            seasonSlug: season.slug ?? null,
-            type: reminderWindow.type,
-          });
-        }
-      }
-    }
-
-    return reminders;
   },
 });
 

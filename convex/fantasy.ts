@@ -10,6 +10,7 @@ import {
   isAdminUser,
   requireAdmin,
 } from "./authHelpers";
+import { syncGameweekDeadlineReminderSchedules } from "./deadlineReminderScheduling";
 import type {
   FantasyFixtureEventType,
   FantasyFixtureSide,
@@ -138,11 +139,14 @@ const sendPushToAllUsersInternal = makeFunctionReference<
   "action",
   {
     body: string;
+    expectedGameweekDeadlineAt?: number;
     gameweekId?: Id<"fantasyGameweeks">;
     gameweekName?: string;
     gameweekNumber?: number;
     key: string;
+    legacyPushEventKeys?: string[];
     skipIfGameweekCompleted?: boolean;
+    skipUnlessGameweekPending?: boolean;
     title: string;
     type: string;
   },
@@ -152,11 +156,14 @@ const sendPushToAllUsersInternal = makeFunctionReference<
   "internal",
   {
     body: string;
+    expectedGameweekDeadlineAt?: number;
     gameweekId?: Id<"fantasyGameweeks">;
     gameweekName?: string;
     gameweekNumber?: number;
     key: string;
+    legacyPushEventKeys?: string[];
     skipIfGameweekCompleted?: boolean;
+    skipUnlessGameweekPending?: boolean;
     title: string;
     type: string;
   },
@@ -201,11 +208,14 @@ async function schedulePushToAllUsers(
   ctx: MutationCtx,
   notification: {
     body: string;
+    expectedGameweekDeadlineAt?: number;
     gameweekId?: Id<"fantasyGameweeks">;
     gameweekName?: string;
     gameweekNumber?: number;
     key: string;
+    legacyPushEventKeys?: string[];
     skipIfGameweekCompleted?: boolean;
+    skipUnlessGameweekPending?: boolean;
     title: string;
     type: string;
   },
@@ -6330,6 +6340,52 @@ export const processPassedGameweekDeadlines = internalMutation({
   },
 });
 
+export const syncUpcomingDeadlineReminderSchedules = mutation({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdmin(ctx);
+
+    const now = Date.now();
+    const seasons = await ctx.db.query("fantasySeasons").collect();
+    let cancelled = 0;
+    let checkedGameweeks = 0;
+    let processedSeasons = 0;
+    let scheduled = 0;
+    let skippedPast = 0;
+    let unchanged = 0;
+
+    for (const season of seasons) {
+      if (season.status === "completed" || season.status === "archived") {
+        continue;
+      }
+
+      const gameweeks = await getSeasonGameweeks(ctx, season._id);
+      processedSeasons += 1;
+      for (const gameweek of gameweeks) {
+        const result = await syncGameweekDeadlineReminderSchedules(
+          ctx,
+          gameweek,
+          now,
+        );
+        checkedGameweeks += 1;
+        cancelled += result.cancelled;
+        scheduled += result.scheduled;
+        skippedPast += result.skippedPast;
+        unchanged += result.unchanged;
+      }
+    }
+
+    return {
+      cancelled,
+      checkedGameweeks,
+      processedSeasons,
+      scheduled,
+      skippedPast,
+      unchanged,
+    };
+  },
+});
+
 async function processStartedFixturesForSeason(
   ctx: MutationCtx,
   season: Doc<"fantasySeasons">,
@@ -7461,6 +7517,18 @@ export const clearGameweekDeadline = mutation({
       status: "open",
       updatedAt: now,
     });
+    const deadlineReminderSchedules =
+      await syncGameweekDeadlineReminderSchedules(
+        ctx,
+        {
+          _id: gameweek._id,
+          deadlineAt: undefined,
+          name: gameweek.name,
+          number: gameweek.number,
+          status: "open",
+        },
+        now,
+      );
 
     if (args.makeCurrent ?? true) {
       await ctx.db.patch(season._id, {
@@ -7471,6 +7539,7 @@ export const clearGameweekDeadline = mutation({
 
     return {
       gameweekId: gameweek._id,
+      deadlineReminderSchedules,
       previousDeadlineAt: gameweek.deadlineAt ?? null,
       status: "open",
     };
@@ -8065,8 +8134,16 @@ export const upsertGameweek = mutation({
     if (args.makeCurrent) {
       await ctx.db.patch(season._id, { currentGameweekId: id, updatedAt: now });
     }
+    const gameweekForScheduling = await ctx.db.get(id);
+    const deadlineReminderSchedules = gameweekForScheduling
+      ? await syncGameweekDeadlineReminderSchedules(
+          ctx,
+          gameweekForScheduling,
+          now,
+        )
+      : null;
 
-    return { id, created: !existing };
+    return { id, created: !existing, deadlineReminderSchedules };
   },
 });
 

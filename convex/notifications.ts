@@ -44,20 +44,8 @@ type UserNotificationInput = {
   userId: Id<"users">;
 };
 
-type DeadlineReminder = {
-  gameweekName: string;
-  gameweekNumber: number;
-  key: string;
-  leagueName?: string | null;
-  legacyKeys?: string[];
-  seasonDisplayName?: string | null;
-  seasonName?: string | null;
-  seasonShortName?: string | null;
-  seasonSlug?: string | null;
-  type: string;
-};
-
 type GameweekPushState = {
+  deadlineAt?: number | null;
   leagueName?: string | null;
   name: string;
   number: number;
@@ -324,13 +312,21 @@ const pushNotificationRecipientsWithoutUserNotification = makeFunctionReference<
   ExpoPushRecipient[]
 >;
 
+const pushNotificationEventExists = makeFunctionReference<
+  "query",
+  { key: string },
+  boolean
+>("notificationInternals:pushNotificationEventExists") as unknown as FunctionReference<
+  "query",
+  "internal",
+  { key: string },
+  boolean
+>;
+
 const isAdminClerkUser = makeFunctionReference<"query", { clerkId: string; email?: string }, boolean>(
   "notificationInternals:isAdminClerkUser",
 ) as unknown as FunctionReference<"query", "internal", { clerkId: string; email?: string }, boolean>;
 
-const pendingDeadlineReminders = makeFunctionReference<"query", { now: number }, DeadlineReminder[]>(
-  "notificationInternals:pendingDeadlineReminders",
-) as unknown as FunctionReference<"query", "internal", { now: number }, DeadlineReminder[]>;
 const gameweekPushState = makeFunctionReference<
   "query",
   { gameweekId: Id<"fantasyGameweeks"> },
@@ -751,16 +747,19 @@ export const sendPushToAllUsersInternal = internalAction({
   args: {
     body: v.string(),
     data: v.optional(v.object({ kind: v.string() })),
+    expectedGameweekDeadlineAt: v.optional(v.number()),
     gameweekId: v.optional(v.id("fantasyGameweeks")),
     gameweekName: v.optional(v.string()),
     gameweekNumber: v.optional(v.number()),
     key: v.string(),
+    legacyPushEventKeys: v.optional(v.array(v.string())),
     leagueName: v.optional(v.string()),
     seasonDisplayName: v.optional(v.string()),
     seasonName: v.optional(v.string()),
     seasonShortName: v.optional(v.string()),
     seasonSlug: v.optional(v.string()),
     skipIfGameweekCompleted: v.optional(v.boolean()),
+    skipUnlessGameweekPending: v.optional(v.boolean()),
     title: v.string(),
     type: v.string(),
   },
@@ -771,17 +770,40 @@ export const sendPushToAllUsersInternal = internalAction({
 
     let gameweek: GameweekPushState = null;
 
-    if (args.skipIfGameweekCompleted && args.gameweekId) {
+    if (args.gameweekId) {
       gameweek = await ctx.runQuery(gameweekPushState, {
         gameweekId: args.gameweekId,
       });
+    }
+
+    if (args.skipIfGameweekCompleted) {
       if (!gameweek || gameweek.status === "completed") {
         return { created: 0, sent: 0, skippedDuplicate: false, updated: 0 };
       }
-    } else if (args.gameweekId) {
-      gameweek = await ctx.runQuery(gameweekPushState, {
-        gameweekId: args.gameweekId,
+    }
+
+    if (args.skipUnlessGameweekPending) {
+      if (
+        !gameweek ||
+        (gameweek.status !== "open" && gameweek.status !== "upcoming")
+      ) {
+        return { created: 0, sent: 0, skippedDuplicate: false, updated: 0 };
+      }
+    }
+
+    if (typeof args.expectedGameweekDeadlineAt === "number") {
+      if (!gameweek || gameweek.deadlineAt !== args.expectedGameweekDeadlineAt) {
+        return { created: 0, sent: 0, skippedDuplicate: false, updated: 0 };
+      }
+    }
+
+    for (const legacyKey of args.legacyPushEventKeys ?? []) {
+      const exists = await ctx.runQuery(pushNotificationEventExists, {
+        key: legacyKey,
       });
+      if (exists) {
+        return { created: 0, sent: 0, skippedDuplicate: true, updated: 0 };
+      }
     }
 
     const eventClaim = await ctx.runMutation(claimPushNotificationEvent, {
@@ -794,7 +816,10 @@ export const sendPushToAllUsersInternal = internalAction({
 
     const recipients = await ctx.runQuery(
       pushNotificationRecipientsWithoutUserNotification,
-      { pushEventKey: args.key },
+      {
+        legacyPushEventKeys: args.legacyPushEventKeys,
+        pushEventKey: args.key,
+      },
     );
     const fallbackMessage = {
       title: args.title,
@@ -845,89 +870,5 @@ export const sendPushToAllUsersInternal = internalAction({
       skippedDuplicate: false,
       updated: notificationResult.updated,
     };
-  },
-});
-
-export const sendDeadlineRemindersInternal = internalAction({
-  args: {},
-  handler: async (ctx) => {
-    if (automatedPushNotificationsAreDisabled()) {
-      return { created: 0, reminders: 0, sent: 0, updated: 0 };
-    }
-
-    const now = Date.now();
-    const reminders = await ctx.runQuery(pendingDeadlineReminders, { now });
-
-    if (reminders.length === 0) {
-      return { created: 0, reminders: 0, sent: 0, updated: 0 };
-    }
-
-    let created = 0;
-    let sent = 0;
-    let updated = 0;
-    let claimedReminders = 0;
-    for (const reminder of reminders) {
-      const eventClaim = await ctx.runMutation(claimPushNotificationEvent, {
-        key: reminder.key,
-        type: reminder.type,
-      });
-      if (!eventClaim.claimed) {
-        continue;
-      }
-
-      claimedReminders += 1;
-      const sentAt = Date.now();
-      const recipients = await ctx.runQuery(
-        pushNotificationRecipientsWithoutUserNotification,
-        {
-          legacyPushEventKeys: reminder.legacyKeys,
-          pushEventKey: reminder.key,
-        },
-      );
-      const fallbackMessage = {
-        title: "Дедлайн",
-        body: `${reminder.gameweekName}: дедлайн наближається. Не забудьте зберегти склад.`,
-        kind: reminder.type,
-        type: reminder.type,
-        gameweekName: reminder.gameweekName,
-        gameweekNumber: reminder.gameweekNumber,
-        leagueName: reminder.leagueName,
-        seasonDisplayName: reminder.seasonDisplayName,
-        seasonName: reminder.seasonName,
-        seasonShortName: reminder.seasonShortName,
-        seasonSlug: reminder.seasonSlug,
-      };
-      const messageForRecipient = (recipient: ExpoPushRecipient) =>
-        getLocalizedPushMessage(recipient, fallbackMessage);
-      const tokenCount = countRecipientTokens(recipients);
-      const sentForReminder =
-        tokenCount > 0
-          ? await sendExpoPushMessages(
-              createExpoMessagesForRecipients(recipients, messageForRecipient),
-            )
-          : 0;
-
-      await ctx.runMutation(completePushNotificationEvent, {
-        key: reminder.key,
-        tokensCount: sentForReminder,
-        type: reminder.type,
-      });
-
-      if (recipients.length > 0) {
-        const notificationResult = await ctx.runMutation(createUserNotifications, {
-          notifications: createNotificationRecordsForRecipients(
-            recipients,
-            messageForRecipient,
-            sentAt,
-            reminder.key,
-          ),
-        });
-        created += notificationResult.created;
-        updated += notificationResult.updated;
-      }
-      sent += sentForReminder;
-    }
-
-    return { created, reminders: claimedReminders, sent, updated };
   },
 });

@@ -6405,11 +6405,13 @@ export const styles = StyleSheet.create({
   matchDetailsLineupPlayerRow: {
     flexDirection: "row",
     alignItems: "center",
+    height: 24,
     gap: spacing.xs,
   },
   matchDetailsLineupPlayerNameSlot: {
     flex: 1,
     minWidth: 0,
+    height: "100%",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "flex-start",
@@ -6431,11 +6433,12 @@ export const styles = StyleSheet.create({
   matchDetailsEventBadges: {
     flexShrink: 0,
     flexDirection: "row",
-    flexWrap: "wrap",
+    flexWrap: "nowrap",
     alignItems: "center",
     alignContent: "center",
     justifyContent: "flex-end",
     gap: spacing.xs,
+    height: 24,
     maxWidth: 96,
   },
   matchDetailsEventBadge: {
