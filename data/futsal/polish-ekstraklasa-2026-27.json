@@ -118,6 +118,7 @@
         "pol-fp:3540",
         "pol-fp-transfer:1164696:gallo",
         "pol-fp-transfer:1164696:juanqui",
+        "pol-fp-transfer:1164696:ernest-kopec",
         "pol-fp-transfer:1164696:ihor-korsun",
         "pol-fp-transfer:1164696:pedro-pereira",
         "pol-fp-transfer:1164696:aleksi-pirttijoki"
@@ -8480,6 +8481,34 @@
       "position": "universal",
       "status": "active",
       "jerseyNumber": null,
+      "clubExternalId": "1164696",
+      "currentTeamExternalIds": [
+        "1164696"
+      ],
+      "listedTeamExternalIds": [
+        "1164696"
+      ],
+      "photoUrl": null,
+      "photoThumbnailUrl": null,
+      "photoProvider": null,
+      "photoSourceUrl": null,
+      "photoSourceThumbnailUrl": null,
+      "sourceStats": {
+        "extraLeague2025_26": null,
+        "firstLeague2025_26": null
+      },
+      "suggestedPrice": 8
+    },
+    {
+      "externalId": "pol-fp-transfer:1164696:ernest-kopec",
+      "sourceSlug": "ernest-kopec",
+      "sourceUrl": "https://www.futsal-polska.pl/transfery2026",
+      "displayName": "Ernest Kopeć",
+      "firstName": "Ernest",
+      "lastName": "Kopeć",
+      "position": "universal",
+      "status": "active",
+      "jerseyNumber": 31,
       "clubExternalId": "1164696",
       "currentTeamExternalIds": [
         "1164696"

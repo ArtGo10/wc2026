@@ -274,6 +274,18 @@ function localizeMatchPlayerName(name: string, language: LanguageCode) {
   ).displayName;
 }
 
+function formatCompactMatchPlayerName(name: string, language: LanguageCode) {
+  const localizedName = localizeMatchPlayerName(name, language).trim();
+  const [firstToken, ...restTokens] = localizedName.split(/\s+/).filter(Boolean);
+
+  if (!firstToken || restTokens.length === 0) {
+    return localizedName;
+  }
+
+  const [initial] = Array.from(firstToken);
+  return initial ? `${initial}. ${restTokens.join(" ")}` : localizedName;
+}
+
 function formatMatchTime(fixture: FantasyFixture, language: LanguageCode) {
   if (fixture.status === "live") {
     return `${fixture.homeScore ?? 0}:${fixture.awayScore ?? 0}`;
@@ -1276,7 +1288,10 @@ export function MatchDetailsPage({
                         (lineup.jerseyNumber !== null
                           ? lineup.jerseyNumber + ". "
                           : "") +
-                        localizeMatchPlayerName(lineup.playerName, language);
+                        formatCompactMatchPlayerName(
+                          lineup.playerName,
+                          language,
+                        );
                       const playerName = (
                         <Text
                           numberOfLines={1}

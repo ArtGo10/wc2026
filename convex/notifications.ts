@@ -48,13 +48,23 @@ type DeadlineReminder = {
   gameweekName: string;
   gameweekNumber: number;
   key: string;
+  leagueName?: string | null;
   legacyKeys?: string[];
+  seasonDisplayName?: string | null;
+  seasonName?: string | null;
+  seasonShortName?: string | null;
+  seasonSlug?: string | null;
   type: string;
 };
 
 type GameweekPushState = {
+  leagueName?: string | null;
   name: string;
   number: number;
+  seasonDisplayName?: string | null;
+  seasonName?: string | null;
+  seasonShortName?: string | null;
+  seasonSlug?: string | null;
   status: string;
 } | null;
 
@@ -93,7 +103,65 @@ function getNotificationGameweekName(
     return `Gameweek ${number}`;
   }
 
-  return gameweekName?.trim() || (language === "uk" ? "Тур" : language === "pl" ? "Kolejka" : "Gameweek");
+  return (
+    gameweekName?.trim() ||
+    (language === "uk" ? "Тур" : language === "pl" ? "Kolejka" : "Gameweek")
+  );
+}
+
+function getNotificationLeagueName(
+  language: NotificationLanguage,
+  season: {
+    leagueName?: string | null;
+    seasonDisplayName?: string | null;
+    seasonName?: string | null;
+    seasonShortName?: string | null;
+    seasonSlug?: string | null;
+  },
+) {
+  if (season.seasonSlug === "polish-futsal-ekstraklasa-2026-27") {
+    return language === "uk" ? "Екстракласа" : "Ekstraklasa";
+  }
+
+  if (
+    season.seasonSlug === "ukrainian-extra-league-2026-27" ||
+    season.seasonSlug === "ukrainian-extra-league-2025-26"
+  ) {
+    return language === "uk" ? "Екстра-ліга" : "Extra-liga";
+  }
+
+  return (
+    season.seasonShortName?.trim() ||
+    season.seasonDisplayName?.trim() ||
+    season.leagueName?.trim() ||
+    season.seasonName?.trim() ||
+    null
+  );
+}
+
+function getNotificationContextName(
+  language: NotificationLanguage,
+  context: {
+    gameweekName?: string | null;
+    gameweekNumber?: number | null;
+    leagueName?: string | null;
+    seasonDisplayName?: string | null;
+    seasonName?: string | null;
+    seasonShortName?: string | null;
+    seasonSlug?: string | null;
+  },
+) {
+  const gameweekName = getNotificationGameweekName(
+    language,
+    context.gameweekName,
+    context.gameweekNumber,
+  );
+  const leagueName = getNotificationLeagueName(language, context);
+
+  return {
+    label: leagueName ? `${leagueName} · ${gameweekName}` : gameweekName,
+    leagueName,
+  };
 }
 
 const PUSH_NOTIFICATION_COPY: Record<
@@ -192,6 +260,11 @@ function getLocalizedPushMessage(
   fallback: PushMessage & {
     gameweekName?: string | null;
     gameweekNumber?: number | null;
+    leagueName?: string | null;
+    seasonDisplayName?: string | null;
+    seasonName?: string | null;
+    seasonShortName?: string | null;
+    seasonSlug?: string | null;
     type: string;
   },
 ): PushMessage {
@@ -208,16 +281,12 @@ function getLocalizedPushMessage(
     };
   }
 
-  const gameweekName = getNotificationGameweekName(
-    language,
-    fallback.gameweekName,
-    fallback.gameweekNumber,
-  );
+  const { label, leagueName } = getNotificationContextName(language, fallback);
 
   return {
-    body: copy.body(gameweekName),
+    body: copy.body(label),
     kind: fallback.kind,
-    title: copy.title,
+    title: leagueName ? `${leagueName}: ${copy.title}` : copy.title,
   };
 }
 
@@ -686,6 +755,11 @@ export const sendPushToAllUsersInternal = internalAction({
     gameweekName: v.optional(v.string()),
     gameweekNumber: v.optional(v.number()),
     key: v.string(),
+    leagueName: v.optional(v.string()),
+    seasonDisplayName: v.optional(v.string()),
+    seasonName: v.optional(v.string()),
+    seasonShortName: v.optional(v.string()),
+    seasonSlug: v.optional(v.string()),
     skipIfGameweekCompleted: v.optional(v.boolean()),
     title: v.string(),
     type: v.string(),
@@ -729,6 +803,12 @@ export const sendPushToAllUsersInternal = internalAction({
       type: args.type,
       gameweekName: args.gameweekName ?? gameweek?.name ?? null,
       gameweekNumber: args.gameweekNumber ?? gameweek?.number ?? null,
+      leagueName: args.leagueName ?? gameweek?.leagueName ?? null,
+      seasonDisplayName:
+        args.seasonDisplayName ?? gameweek?.seasonDisplayName ?? null,
+      seasonName: args.seasonName ?? gameweek?.seasonName ?? null,
+      seasonShortName: args.seasonShortName ?? gameweek?.seasonShortName ?? null,
+      seasonSlug: args.seasonSlug ?? gameweek?.seasonSlug ?? null,
     };
     const messageForRecipient = (recipient: ExpoPushRecipient) =>
       getLocalizedPushMessage(recipient, fallbackMessage);
@@ -811,6 +891,11 @@ export const sendDeadlineRemindersInternal = internalAction({
         type: reminder.type,
         gameweekName: reminder.gameweekName,
         gameweekNumber: reminder.gameweekNumber,
+        leagueName: reminder.leagueName,
+        seasonDisplayName: reminder.seasonDisplayName,
+        seasonName: reminder.seasonName,
+        seasonShortName: reminder.seasonShortName,
+        seasonSlug: reminder.seasonSlug,
       };
       const messageForRecipient = (recipient: ExpoPushRecipient) =>
         getLocalizedPushMessage(recipient, fallbackMessage);

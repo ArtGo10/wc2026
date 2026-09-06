@@ -2,7 +2,7 @@
   "expo": {
     "name": "Fantasy Futsal",
     "slug": "fantasy-futsal",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "scheme": "fantasy-futsal",
     "orientation": "portrait",
     "icon": "./assets/app-icon.png",
