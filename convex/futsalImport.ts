@@ -4,6 +4,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { mutation } from "./_generated/server";
 import type { MutationCtx } from "./_generated/server";
 import { requireAdmin } from "./authHelpers";
+import { syncGameweekDeadlineReminderSchedules } from "./deadlineReminderScheduling";
 import {
   fantasyFixtureStatusValidator,
   fantasyGameweekStatusValidator,
@@ -470,6 +471,17 @@ async function upsertGameweek(
   if (existing) {
     if (!dryRun) {
       await ctx.db.patch(existing._id, payload);
+      await syncGameweekDeadlineReminderSchedules(
+        ctx,
+        {
+          _id: existing._id,
+          deadlineAt: payload.deadlineAt,
+          name: payload.name,
+          number: payload.number,
+          status: payload.status,
+        },
+        now,
+      );
     }
     return { id: existing._id, created: false };
   }
@@ -482,6 +494,17 @@ async function upsertGameweek(
     ...payload,
     createdAt: now,
   });
+  await syncGameweekDeadlineReminderSchedules(
+    ctx,
+    {
+      _id: id,
+      deadlineAt: payload.deadlineAt,
+      name: payload.name,
+      number: payload.number,
+      status: payload.status,
+    },
+    now,
+  );
 
   return { id, created: true };
 }
