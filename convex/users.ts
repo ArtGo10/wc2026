@@ -26,6 +26,7 @@ const ACCOUNT_DELETION_CLEANUP_BATCH_SIZE = 10;
 const ACCOUNT_DELETION_CLEANUP_MAX_ATTEMPTS = 12;
 const ACCOUNT_DELETION_CLEANUP_RETRY_BASE_MS = 60 * 1000;
 const ACCOUNT_DELETION_CLEANUP_RETRY_MAX_MS = 60 * 60 * 1000;
+const CURRENT_TERMS_VERSION = "2026-09-05";
 
 type SendFeedbackEmailArgs = {
   createdAt: number;
@@ -388,18 +389,21 @@ export const upsertCurrentUser = mutation({
     const name = resolveName(identity, args.name, email);
     const now = Date.now();
 
-    const legalAcceptancePatch =
-      args.termsAcceptedAt && args.termsVersion
-        ? {
-            termsAcceptedAt: args.termsAcceptedAt,
-            termsVersion: args.termsVersion,
-          }
-        : {};
+    const termsVersion = CURRENT_TERMS_VERSION;
+    const termsAcceptedAt = args.termsAcceptedAt ?? now;
     const preferredLanguagePatch = args.preferredLanguage
       ? { preferredLanguage: args.preferredLanguage }
       : {};
 
     if (existing) {
+      const legalAcceptancePatch =
+        existing.termsAcceptedAt && existing.termsVersion === termsVersion
+          ? {}
+          : {
+              termsAcceptedAt,
+              termsVersion,
+            };
+
       await ctx.db.patch(existing._id, {
         email,
         name,
@@ -425,7 +429,8 @@ export const upsertCurrentUser = mutation({
       email,
       name,
       role: "user",
-      ...legalAcceptancePatch,
+      termsAcceptedAt,
+      termsVersion,
       ...preferredLanguagePatch,
       createdAt: now,
       updatedAt: now,
@@ -441,8 +446,8 @@ export const upsertCurrentUser = mutation({
         participantNumber: null,
         favoriteFantasyClubId: null,
         preferredLanguage: preferredLanguagePatch.preferredLanguage ?? null,
-        termsAcceptedAt: legalAcceptancePatch.termsAcceptedAt ?? null,
-        termsVersion: legalAcceptancePatch.termsVersion ?? null,
+        termsAcceptedAt,
+        termsVersion,
         createdAt: now,
       },
     };

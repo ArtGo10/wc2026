@@ -69,12 +69,13 @@ export function useCurrentUserBootstrap({
       ) {
         try {
           const legalAcceptance = await getStoredLegalAcceptance();
+          const termsAcceptedAt = legalAcceptance?.acceptedAt ?? Date.now();
           await upsertCurrentUserRef.current({
             email: profileEmail,
             name: profileName,
             preferredLanguage: preferredLanguageRef.current,
-            termsAcceptedAt: legalAcceptance?.acceptedAt,
-            termsVersion: legalAcceptance ? LEGAL_VERSION : undefined,
+            termsAcceptedAt,
+            termsVersion: LEGAL_VERSION,
           });
 
           if (legalAcceptance) {

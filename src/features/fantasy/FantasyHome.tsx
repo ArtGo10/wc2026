@@ -26,15 +26,9 @@ import { AppConnectionProblemScreen } from "../../components/common/AppConnectio
 import { AppLoadingOverlay } from "../../components/common/AppLoadingOverlay";
 import { AppLoadingScreen } from "../../components/common/AppLoadingScreen";
 import { LanguageSwitcher } from "../../components/common/LanguageSwitcher";
-import { LegalConsentText } from "../../components/legal/LegalConsentText";
-import {
-  LegalTextSheet,
-  type LegalTextKind,
-} from "../../components/legal/LegalTextSheet";
 import { useCurrentUserBootstrap } from "../../hooks/useCurrentUserBootstrap";
 import { useDismissKeyboardOnChange } from "../../hooks/useDismissKeyboardOnChange";
 import { useSafeQuery } from "../../hooks/useSafeQuery";
-import { LEGAL_VERSION } from "../../legal/legalContent";
 import { clearStoredLegalAcceptance } from "../../legal/legalAcceptanceStorage";
 import { useExpoPushTokenRegistration } from "../../hooks/usePushNotifications";
 import { useI18n } from "../../i18n/I18nProvider";
@@ -723,7 +717,6 @@ export function FantasyHome({
   const initialActiveTab = useMemo(() => getInitialFantasyTab(), []);
   const convexAuth = useConvexAuth();
   const upsertCurrentUser = useMutation(api.users.upsertCurrentUser);
-  const acceptCurrentUserTerms = useMutation(api.users.acceptCurrentUserTerms);
   const deleteCurrentUserAccount = useAction(api.users.deleteCurrentUserAccount);
   const toggleFavoritePlayer = useMutation(api.fantasy.toggleFavoritePlayer);
   const upsertExpoPushToken = useMutation(
@@ -747,14 +740,6 @@ export function FantasyHome({
   const [isShellHeaderHidden, setIsShellHeaderHidden] = useState(false);
   const [areBottomTabsHidden, setAreBottomTabsHidden] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
-  const [hasAcceptedRequiredLegal, setHasAcceptedRequiredLegal] =
-    useState(false);
-  const [requiredLegalBusy, setRequiredLegalBusy] = useState(false);
-  const [requiredLegalErrorText, setRequiredLegalErrorText] = useState<
-    string | null
-  >(null);
-  const [requiredLegalSheetKind, setRequiredLegalSheetKind] =
-    useState<LegalTextKind | null>(null);
   const [storedSeasonSlugLoaded, setStoredSeasonSlugLoaded] = useState(false);
   const [selectedSeasonSlug, setSelectedSeasonSlug] = useState<string | null>(
     null,
@@ -1209,10 +1194,6 @@ export function FantasyHome({
     setIsShellHeaderHidden(false);
     setAreBottomTabsHidden(false);
     setSeasonPickerOpen(false);
-    setHasAcceptedRequiredLegal(false);
-    setRequiredLegalBusy(false);
-    setRequiredLegalErrorText(null);
-    setRequiredLegalSheetKind(null);
     setCanShowAuthProblem(false);
     setConvexTokenStatus("idle");
     setPrivateLoadingTimedOut(false);
@@ -1380,7 +1361,6 @@ export function FantasyHome({
     activeTab,
     isNotificationsOpen,
     isAdminActionsOpen,
-    requiredLegalSheetKind,
     isShellHeaderHidden,
     areBottomTabsHidden,
     isSeasonPickerOpen,
@@ -1462,25 +1442,12 @@ export function FantasyHome({
     userId: canUseNetworkedPrivateFeatures ? user?.id : undefined,
   });
 
-  const currentTermsAreAccepted = Boolean(
-    currentBackendUser?.termsAcceptedAt &&
-    currentBackendUser.termsVersion === LEGAL_VERSION,
-  );
   const shouldWaitForCurrentUserProfile =
     userCanUsePrivateFeatures &&
     profileReady &&
     currentUserProfile === undefined;
-  const shouldRequireLegalAcceptance = Boolean(
-    userCanUsePrivateFeatures &&
-    profileReady &&
-    currentBackendUser &&
-    !currentTermsAreAccepted,
-  );
   const canResolveSeasonSelection = Boolean(
-    userCanUsePrivateFeatures &&
-      profileReady &&
-      currentBackendUser &&
-      currentTermsAreAccepted,
+    userCanUsePrivateFeatures && profileReady && currentBackendUser,
   );
   const shouldWaitForSeasonSelection = Boolean(
     canResolveSeasonSelection &&
@@ -1609,27 +1576,6 @@ export function FantasyHome({
   const marketTabWasVisited = visitedTabs.has("market");
   const seasonTabWasVisited = visitedTabs.has("season");
   const profileTabWasVisited = visitedTabs.has("profile");
-
-  const handleRequiredLegalAccept = useCallback(async () => {
-    if (!hasAcceptedRequiredLegal) {
-      setRequiredLegalErrorText(t("auth.termsRequired"));
-      return;
-    }
-
-    try {
-      setRequiredLegalBusy(true);
-      setRequiredLegalErrorText(null);
-      await acceptCurrentUserTerms({
-        termsAcceptedAt: Date.now(),
-        termsVersion: LEGAL_VERSION,
-      });
-      await clearStoredLegalAcceptance();
-    } catch (error) {
-      setRequiredLegalErrorText(getErrorMessage(error, language));
-    } finally {
-      setRequiredLegalBusy(false);
-    }
-  }, [acceptCurrentUserTerms, hasAcceptedRequiredLegal, language, t]);
 
   const handleSignOut = useCallback(async () => {
     if (isSigningOut) return;
@@ -1908,107 +1854,6 @@ export function FantasyHome({
         title={t("loading.preparingProfile")}
         description={t("loading.syncingAccount")}
       />
-    );
-  }
-
-  if (shouldRequireLegalAcceptance) {
-    return (
-      <FantasySeasonThemeProvider season={activeFantasySeason}>
-        <View style={styles.fantasyShell}>
-          <FantasyStaticImagePreloader />
-          <FantasyShellHeader
-            activeSeason={activeFantasySeason}
-            activeTab={activeTab}
-            onNotificationsPress={() => setIsNotificationsOpen(true)}
-            onSeasonSelectPress={() => setSeasonPickerOpen(true)}
-            onTabChange={handleTabChange}
-            seasonOptions={availableFantasySeasons}
-            showLanguageSwitcher={shouldUseDesktopWebLayout}
-            showWebNav={false}
-            tabs={FANTASY_TABS}
-          />
-          <View style={styles.fantasyScreen}>
-            <View style={styles.panel}>
-              <Text style={styles.sectionTitle}>
-                {t("auth.termsGateTitle")}
-              </Text>
-              <Text style={styles.mutedText}>
-                {t("auth.termsGateDescription")}
-              </Text>
-
-              <View style={styles.legalConsentGroup}>
-                <View style={styles.legalConsentRow}>
-                  <Pressable
-                    accessibilityRole="checkbox"
-                    accessibilityState={{ checked: hasAcceptedRequiredLegal }}
-                    hitSlop={8}
-                    onPress={() => {
-                      setHasAcceptedRequiredLegal((current) => !current);
-                      setRequiredLegalErrorText(null);
-                    }}
-                  >
-                    <View
-                      style={[
-                        styles.legalCheckbox,
-                        hasAcceptedRequiredLegal
-                          ? [
-                              styles.legalCheckboxChecked,
-                              {
-                                backgroundColor: activeSeasonPrimaryColor,
-                                borderColor: activeSeasonPrimaryColor,
-                              },
-                            ]
-                          : null,
-                      ]}
-                    >
-                      {hasAcceptedRequiredLegal ? (
-                        <Check
-                          color={colors.text.inverse}
-                          size={15}
-                          strokeWidth={3}
-                        />
-                      ) : null}
-                    </View>
-                  </Pressable>
-                  <LegalConsentText
-                    onPrivacyPress={() => setRequiredLegalSheetKind("privacy")}
-                    onTermsPress={() => setRequiredLegalSheetKind("terms")}
-                  />
-                </View>
-              </View>
-
-              {requiredLegalErrorText ? (
-                <Text style={styles.errorText}>{requiredLegalErrorText}</Text>
-              ) : null}
-
-              <Pressable
-                disabled={requiredLegalBusy || !hasAcceptedRequiredLegal}
-                onPress={() => void handleRequiredLegalAccept()}
-                style={[
-                  styles.authPrimaryButton,
-                  !requiredLegalBusy && hasAcceptedRequiredLegal
-                    ? { backgroundColor: activeSeasonPrimaryColor }
-                    : null,
-                  requiredLegalBusy || !hasAcceptedRequiredLegal
-                    ? styles.buttonDisabled
-                    : null,
-                ]}
-              >
-                <Text style={styles.primaryButtonText}>
-                  {requiredLegalBusy
-                    ? t("auth.wait")
-                    : t("auth.acceptTermsContinue")}
-                </Text>
-              </Pressable>
-            </View>
-          </View>
-          <LegalTextSheet
-            kind={requiredLegalSheetKind ?? "terms"}
-            onClose={() => setRequiredLegalSheetKind(null)}
-            visible={Boolean(requiredLegalSheetKind)}
-          />
-        </View>
-      </FantasySeasonThemeProvider>
     );
   }
 
