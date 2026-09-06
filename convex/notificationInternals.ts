@@ -293,10 +293,16 @@ export const gameweekPushState = internalQuery({
   handler: async (ctx, args) => {
     const gameweek = await ctx.db.get(args.gameweekId);
     if (!gameweek) return null;
+    const season = await ctx.db.get(gameweek.seasonId);
 
     return {
+      leagueName: season?.leagueName ?? null,
       name: gameweek.name,
       number: gameweek.number,
+      seasonDisplayName: season?.displayName ?? null,
+      seasonName: season?.name ?? null,
+      seasonShortName: season?.shortName ?? null,
+      seasonSlug: season?.slug ?? null,
       status: gameweek.status,
     };
   },
@@ -329,6 +335,11 @@ export const pendingDeadlineReminders = internalQuery({
       gameweekNumber: number;
       key: string;
       legacyKeys: string[];
+      leagueName: string | null;
+      seasonDisplayName: string | null;
+      seasonName: string | null;
+      seasonShortName: string | null;
+      seasonSlug: string | null;
       type: string;
     }> = [];
 
@@ -378,6 +389,11 @@ export const pendingDeadlineReminders = internalQuery({
             gameweekNumber: gameweek.number,
             key,
             legacyKeys,
+            leagueName: season.leagueName ?? null,
+            seasonDisplayName: season.displayName ?? null,
+            seasonName: season.name ?? null,
+            seasonShortName: season.shortName ?? null,
+            seasonSlug: season.slug ?? null,
             type: reminderWindow.type,
           });
         }
