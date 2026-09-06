@@ -11698,9 +11698,9 @@
       "awayClubExternalId": "1069049",
       "homeClubName": "Constract Olsztyn",
       "awayClubName": "GI Malepszy Leszno",
-      "homeScore": null,
-      "awayScore": null,
-      "status": "scheduled",
+      "homeScore": 2,
+      "awayScore": 1,
+      "status": "completed",
       "venue": null,
       "leagueExternalIds": [
         "6294"
@@ -11721,9 +11721,9 @@
       "awayClubExternalId": "1203274",
       "homeClubName": "Futsal Świecie",
       "awayClubName": "KKF Motus Kazimierza Wielka",
-      "homeScore": null,
-      "awayScore": null,
-      "status": "scheduled",
+      "homeScore": 6,
+      "awayScore": 2,
+      "status": "completed",
       "venue": null,
       "leagueExternalIds": [
         "6294"
